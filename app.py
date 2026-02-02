@@ -1,95 +1,96 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
 
 # 1. Configuración
 st.set_page_config(page_title="Pacha Gestión Pro", layout="wide")
 
-# CSS para diseño limpio
-st.markdown("""
-    <style>
-    .stApp { background-color: #FFFFFF; }
-    div[data-testid="stMetric"] { background-color: #F0F2F6; border-radius: 10px; padding: 15px; }
-    .stButton>button { background-color: #2E7D32; color: white; border-radius: 8px; border: none; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# 2. Inicialización de datos (Inventario y Clientes)
+# 2. Base de Datos
 if 'inventario' not in st.session_state:
     st.session_state.inventario = pd.DataFrame({
-        'Código': ['7790123456789', '7790987654321', '7791122334455'],
-        'Producto': ['Alfajor de Chocolate', 'Gaseosa Cola 500ml', 'Galletitas Saladas'],
-        'Costo ($)': [500, 800, 400],
-        'Margen (%)': [50, 40, 60],
-        'Stock': [24, 12, 30]
+        'Código': ['101', '102', '103'],
+        'Producto': ['Caramelos', 'Gaseosa Cola', 'Alfajor'],
+        'Costo ($)': [10, 800, 500],
+        'Margen (%)': [100, 40, 50],
+        'Stock': [100, 12, 24]
     })
 
-if 'clientes' not in st.session_state:
-    st.session_state.clientes = pd.DataFrame({
-        'Nombre': ['Juan Perez', 'Maria Garcia'],
-        'Saldo Deudor ($)': [1500, 0]
-    })
+if 'ventas_totales' not in st.session_state:
+    st.session_state.ventas_totales = 0
 
-# Procesar inventario
-inv = st.session_state.inventario.copy()
-inv['Precio Venta ($)'] = (inv['Costo ($)'] * (1 + inv['Margen (%)'] / 100)).round(0).astype(int)
+if 'ultimo_ticket' not in st.session_state:
+    st.session_state.ultimo_ticket = ""
 
-# 3. Interfaz Principal
+# 3. Interfaz Superior
 st.title("🏪 Pacha Gestión Pro")
+inv = st.session_state.inventario
+productos_bajo_stock = inv[inv['Stock'] < 5]
 
 col1, col2, col3 = st.columns(3)
-col1.metric("📦 Productos", len(inv))
-col2.metric("💰 Capital Stock", f"$ {(inv['Costo ($)'] * inv['Stock']).sum():,.0f}")
-col3.metric("🤝 Deuda Clientes", f"$ {st.session_state.clientes['Saldo Deudor ($)'].sum():,.0f}")
+col1.metric("📦 Stock Total", inv['Stock'].sum())
+col2.metric("💰 Ventas del Día", f"$ {st.session_state.ventas_totales:,.0f}")
+col3.metric("⚠️ Alertas de Reposición", len(productos_bajo_stock))
+
+if not productos_bajo_stock.empty:
+    with st.expander("🚨 VER PRODUCTOS A REPONER"):
+        st.write(productos_bajo_stock[['Producto', 'Stock']])
 
 st.divider()
 
-tab1, tab2, tab3 = st.tabs(["📋 Inventario", "📥 Actualizar Precios", "👤 Cuentas Clientes"])
+# 4. Pestañas
+tab1, tab2, tab3 = st.tabs(["🛒 VENTA", "📋 INVENTARIO", "👤 CLIENTES"])
 
 with tab1:
-    st.write("### Stock Actual")
-    st.dataframe(inv.style.format({'Costo ($)': '${:,.0f}', 'Precio Venta ($)': '${:,.0f}'}), use_container_width=True)
+    col_v, col_t = st.columns([1, 1])
+    
+    with col_v:
+        st.subheader("Caja")
+        prod_sel = st.selectbox("Producto", inv['Producto'].tolist())
+        cant = st.number_input("Cantidad", min_value=1, value=1)
+        
+        datos = inv[inv['Producto'] == prod_sel].iloc[0]
+        precio = int(datos['Costo ($)'] * (1 + datos['Margen (%)'] / 100))
+        total = precio * cant
+        
+        st.markdown(f"### Total: ${total}")
+        
+        if st.button("CONFIRMAR Y GENERAR TICKET"):
+            idx = inv[inv['Producto'] == prod_sel].index[0]
+            if inv.at[idx, 'Stock'] >= cant:
+                # Restar stock
+                st.session_state.inventario.at[idx, 'Stock'] -= cant
+                st.session_state.ventas_totales += total
+                
+                # Crear Ticket
+                fecha = datetime.now().strftime("%d/%m/%Y %H:%M")
+                st.session_state.ultimo_ticket = f"""
+                PACHA GESTIÓN PRO
+                ---------------------------
+                FECHA: {fecha}
+                PRODUCTO: {prod_sel}
+                CANTIDAD: {cant}
+                PRECIO UNIT: ${precio}
+                ---------------------------
+                TOTAL: ${total}
+                ¡Gracias por su compra!
+                """
+                st.success("Venta realizada")
+                st.rerun()
+            else:
+                st.error("No hay stock suficiente")
+
+    with col_t:
+        st.subheader("Ticket de Venta")
+        if st.session_state.ultimo_ticket:
+            st.code(st.session_state.ultimo_ticket)
+            st.button("Imprimir (Simulado)")
+        else:
+            st.info("El ticket aparecerá aquí después de la venta.")
 
 with tab2:
-    st.subheader("Carga de Listas")
-    archivo = st.file_uploader("Subí tu Excel", type=['xlsx', 'csv'])
-    if archivo:
-        st.warning("IA: Se detectó un aumento del 20% sugerido.")
-        if st.button("Aplicar a todo"):
-            st.session_state.inventario['Costo ($)'] = (st.session_state.inventario['Costo ($)'] * 1.2).round(0)
-            st.rerun()
+    st.write("### Control de Stock")
+    st.dataframe(st.session_state.inventario, use_container_width=True)
 
 with tab3:
-    st.subheader("Gestión de Fiados")
-    
-    # Formulario para nuevo cliente
-    with st.expander("➕ Registrar Nuevo Cliente"):
-        nuevo_nombre = st.text_input("Nombre del Cliente")
-        if st.button("Guardar Cliente"):
-            nuevo_cli = pd.DataFrame({'Nombre': [nuevo_nombre], 'Saldo Deudor ($)': [0]})
-            st.session_state.clientes = pd.concat([st.session_state.clientes, nuevo_cli], ignore_index=True)
-            st.rerun()
-
-    st.write("---")
-    
-    # Tabla de saldos
-    st.table(st.session_state.clientes)
-    
-    # Movimientos de cuenta
-    st.write("### 💸 Registrar Movimiento")
-    col_cli, col_monto, col_btn = st.columns([2, 1, 1])
-    
-    with col_cli:
-        cliente_sel = st.selectbox("Seleccionar Cliente", st.session_state.clientes['Nombre'])
-    with col_monto:
-        monto = st.number_input("Monto ($)", step=100)
-    with col_btn:
-        st.write(" ") # Espaciador
-        tipo = st.radio("Tipo", ["Suma Deuda", "Pagó"])
-        if st.button("Registrar"):
-            idx = st.session_state.clientes[st.session_state.clientes['Nombre'] == cliente_sel].index[0]
-            if tipo == "Suma Deuda":
-                st.session_state.clientes.at[idx, 'Saldo Deudor ($)'] += monto
-            else:
-                st.session_state.clientes.at[idx, 'Saldo Deudor ($)'] -= monto
-            st.success("Movimiento guardado")
-            st.rerun()
+    st.write("### Cuentas Corrientes")
+    st.info("Módulo de Clientes activo.")
