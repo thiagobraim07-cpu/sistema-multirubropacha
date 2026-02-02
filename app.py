@@ -1,84 +1,97 @@
 import streamlit as st
 import pandas as pd
 
-# Configuración de página con estilo moderno
-st.set_page_config(page_title="Pacha Gestion Pro", layout="wide", initial_sidebar_state="collapsed")
+# 1. Configuración de página con tema oscuro forzado
+st.set_page_config(page_title="Pacha Pro Neon", layout="wide")
 
-# CSS Personalizado para que se vea "Pro" e innovador
+# 2. CSS para el estilo NEÓN e INNOVADOR
 st.markdown("""
     <style>
-    .main { background-color: #f8f9fa; }
-    .stMetric { background-color: #ffffff; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    .stButton>button { width: 100%; border-radius: 10px; height: 3em; background-color: #4CAF50; color: white; border: none; transition: 0.3s; }
-    .stButton>button:hover { background-color: #45a049; transform: scale(1.02); }
+    /* Fondo general oscuro */
+    .stApp { background-color: #0E1117; color: #00FFC8; }
+    
+    /* Tarjetas de métricas con borde neón */
+    div[data-testid="stMetric"] {
+        background-color: #161B22;
+        border: 1px solid #00FFC8;
+        padding: 15px;
+        border-radius: 15px;
+        box-shadow: 0 0 10px #00FFC8;
+    }
+    
+    /* Estilo de los títulos */
+    h1, h2, h3 { color: #00FFC8 !important; text-shadow: 0 0 15px #00FFC8; }
+    
+    /* Botones Neón */
+    .stButton>button {
+        background-color: transparent;
+        color: #00FFC8;
+        border: 2px solid #00FFC8;
+        border-radius: 20px;
+        font-weight: bold;
+        transition: 0.3s;
+        box-shadow: 0 0 5px #00FFC8;
+    }
+    .stButton>button:hover {
+        background-color: #00FFC8;
+        color: #0E1117;
+        box-shadow: 0 0 20px #00FFC8;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🚀 Pacha Gestión Pro")
-st.write("Sistema inteligente para el comercio moderno.")
+st.title("⚡ PACHA GESTIÓN NEÓN")
+st.write("---")
 
-# 1. Base de datos con precios redondeados
+# 3. Base de datos con redondeo forzado desde el inicio
 if 'inventario' not in st.session_state:
     data = {
         'Código': ['7790123456789', '7790987654321', '7791122334455', '7795544332211'],
         'Producto': ['Alfajor de Chocolate', 'Gaseosa Cola 500ml', 'Galletitas Saladas', 'Encendedor'],
-        'Costo ($)': [500.0, 800.0, 400.0, 300.0],
+        'Costo ($)': [500, 800, 400, 300],
         'Margen (%)': [50, 40, 60, 100],
         'Stock': [24, 12, 30, 10]
     }
     st.session_state.inventario = pd.DataFrame(data)
 
-# Cálculos base
+# Procesamiento de datos sin decimales
 df = st.session_state.inventario.copy()
-df['Precio Venta ($)'] = (df['Costo ($)'] * (1 + df['Margen (%)'] / 100)).round(0) # Redondeo a entero
+df['Costo ($)'] = df['Costo ($)'].astype(int)
+df['Precio Venta ($)'] = (df['Costo ($)'] * (1 + df['Margen (%)'] / 100)).round(0).astype(int)
 
-# 2. Dashboard de indicadores (Innovador)
-col_a, col_b, col_c = st.columns(3)
-with col_a:
-    st.metric("📦 Productos", len(df))
-with col_b:
-    valor_stock = (df['Costo ($)'] * df['Stock']).sum()
-    st.metric("💰 Valor Stock (Costo)", f"$ {valor_stock:,.0f}")
-with col_c:
-    st.metric("🔥 Margen Promedio", f"{df['Margen (%)'].mean():.1f}%")
+# 4. Dashboard de métricas
+col1, col2, col3 = st.columns(3)
+col1.metric("📦 PRODUCTOS", f"{len(df)}")
+col2.metric("💰 CAPITAL", f"$ {(df['Costo ($)'] * df['Stock']).sum():,.0f}")
+col3.metric("📈 MARGEN", f"{int(df['Margen (%)'].mean())}%")
 
-st.divider()
-
-# 3. Interfaz de Gestión
-tab1, tab2 = st.tabs(["📊 Inventario en Vivo", "📥 Carga de Listas"])
+# 5. Pestañas de Navegación
+tab1, tab2, tab3 = st.tabs(["💎 INVENTARIO", "🔋 ACTUALIZAR", "👤 CLIENTES (PRÓXIMAMENTE)"])
 
 with tab1:
-    st.write("### Vista General de Productos")
-    # Tabla con diseño mejorado
+    st.write("### Stock Disponible")
+    # Mostramos la tabla formateada para que no tenga puntos decimales
     st.dataframe(df.style.format({
-        "Costo ($)": "${:.0f}",
-        "Precio Venta ($)": "${:.0f}",
-        "Margen (%)": "{}%"
+        'Costo ($)': '${:,.0f}',
+        'Precio Venta ($)': '${:,.0f}',
+        'Margen (%)': '{}%'
     }), use_container_width=True)
 
 with tab2:
-    st.subheader("Actualización Inteligente")
-    col_file, col_info = st.columns([1, 1])
+    st.subheader("Subida de Listas de Proveedores")
+    archivo = st.file_uploader("Arrastrá tu archivo aquí", type=['xlsx', 'csv'])
     
-    with col_file:
-        archivo = st.file_uploader("Arrastrá el Excel del proveedor", type=['xlsx', 'csv'])
-    
-    with col_info:
-        st.info("La IA detectará automáticamente aumentos y mantendrá tus márgenes de ganancia intactos.")
-
     if archivo:
-        # Simulamos detección de aumento para la demo
-        st.warning("⚠️ Se detectó un aumento general del 15% en los costos.")
-        df_new = df.copy()
-        df_new['Nuevo Costo'] = (df_new['Costo ($)'] * 1.15).round(0)
-        df_new['Nuevo Precio'] = (df_new['Nuevo Costo'] * (1 + df_new['Margen (%)'] / 100)).round(0)
+        st.warning("🚀 IA: Calculando nuevos precios sin centavos...")
+        # Simulamos un aumento del 20%
+        df_update = df.copy()
+        df_update['Nuevo Costo'] = (df_update['Costo ($)'] * 1.20).round(0).astype(int)
+        df_update['Nuevo Precio'] = (df_update['Nuevo Costo'] * (1 + df_update['Margen (%)'] / 100)).round(0).astype(int)
         
-        st.write("#### Comparativa de Precios")
-        st.table(df_new[['Producto', 'Costo ($)', 'Nuevo Costo', 'Nuevo Precio']])
+        st.table(df_update[['Producto', 'Costo ($)', 'Nuevo Costo', 'Nuevo Precio']])
         
-        if st.button("🔥 ACTUALIZAR TODOS LOS PRECIOS"):
-            st.session_state.inventario['Costo ($)'] = df_new['Nuevo Costo']
-            st.success("¡Precios actualizados y redondeados!")
+        if st.button("APLICAR CAMBIOS NEÓN"):
+            st.session_state.inventario['Costo ($)'] = df_update['Nuevo Costo']
             st.balloons()
             st.rerun()
     
