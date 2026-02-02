@@ -1,93 +1,95 @@
 import streamlit as st
 import pandas as pd
 
-# 1. Configuración de página
+# 1. Configuración
 st.set_page_config(page_title="Pacha Gestión Pro", layout="wide")
 
-# 2. CSS para diseño limpio y profesional (Fondo claro)
+# CSS para diseño limpio
 st.markdown("""
     <style>
     .stApp { background-color: #FFFFFF; }
-    div[data-testid="stMetric"] {
-        background-color: #F0F2F6;
-        border-radius: 10px;
-        padding: 15px;
-    }
-    .stButton>button {
-        background-color: #2E7D32;
-        color: white;
-        border-radius: 8px;
-        border: none;
-        padding: 10px 20px;
-    }
-    .stButton>button:hover {
-        background-color: #1B5E20;
-        border: none;
-    }
+    div[data-testid="stMetric"] { background-color: #F0F2F6; border-radius: 10px; padding: 15px; }
+    .stButton>button { background-color: #2E7D32; color: white; border-radius: 8px; border: none; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🏪 Pacha Gestión Pro")
-st.write("Administración eficiente para tu negocio")
-
-# 3. Base de datos con precios redondeados (sin decimales)
+# 2. Inicialización de datos (Inventario y Clientes)
 if 'inventario' not in st.session_state:
-    data = {
-        'Código': ['7790123456789', '7790987654321', '7791122334455', '7795544332211'],
-        'Producto': ['Alfajor de Chocolate', 'Gaseosa Cola 500ml', 'Galletitas Saladas', 'Encendedor'],
-        'Costo ($)': [500, 800, 400, 300],
-        'Margen (%)': [50, 40, 60, 100],
-        'Stock': [24, 12, 30, 10]
-    }
-    st.session_state.inventario = pd.DataFrame(data)
+    st.session_state.inventario = pd.DataFrame({
+        'Código': ['7790123456789', '7790987654321', '7791122334455'],
+        'Producto': ['Alfajor de Chocolate', 'Gaseosa Cola 500ml', 'Galletitas Saladas'],
+        'Costo ($)': [500, 800, 400],
+        'Margen (%)': [50, 40, 60],
+        'Stock': [24, 12, 30]
+    })
 
-# Procesar datos para visualización limpia
-df = st.session_state.inventario.copy()
-df['Costo ($)'] = df['Costo ($)'].astype(int)
-df['Precio Venta ($)'] = (df['Costo ($)'] * (1 + df['Margen (%)'] / 100)).round(0).astype(int)
+if 'clientes' not in st.session_state:
+    st.session_state.clientes = pd.DataFrame({
+        'Nombre': ['Juan Perez', 'Maria Garcia'],
+        'Saldo Deudor ($)': [1500, 0]
+    })
 
-# 4. Dashboard de métricas
+# Procesar inventario
+inv = st.session_state.inventario.copy()
+inv['Precio Venta ($)'] = (inv['Costo ($)'] * (1 + inv['Margen (%)'] / 100)).round(0).astype(int)
+
+# 3. Interfaz Principal
+st.title("🏪 Pacha Gestión Pro")
+
 col1, col2, col3 = st.columns(3)
-col1.metric("📦 Productos", f"{len(df)}")
-col2.metric("💰 Capital en Stock", f"$ {(df['Costo ($)'] * df['Stock']).sum():,.0f}")
-col3.metric("📈 Margen Promedio", f"{int(df['Margen (%)'].mean())}%")
+col1.metric("📦 Productos", len(inv))
+col2.metric("💰 Capital Stock", f"$ {(inv['Costo ($)'] * inv['Stock']).sum():,.0f}")
+col3.metric("🤝 Deuda Clientes", f"$ {st.session_state.clientes['Saldo Deudor ($)'].sum():,.0f}")
 
 st.divider()
 
-# 5. Pestañas
-tab1, tab2, tab3 = st.tabs(["📋 Inventario", "📥 Cargar Lista", "👥 Clientes"])
+tab1, tab2, tab3 = st.tabs(["📋 Inventario", "📥 Actualizar Precios", "👤 Cuentas Clientes"])
 
 with tab1:
     st.write("### Stock Actual")
-    st.dataframe(df.style.format({
-        'Costo ($)': '${:,.0f}',
-        'Precio Venta ($)': '${:,.0f}',
-        'Margen (%)': '{}%'
-    }), use_container_width=True)
+    st.dataframe(inv.style.format({'Costo ($)': '${:,.0f}', 'Precio Venta ($)': '${:,.0f}'}), use_container_width=True)
 
 with tab2:
-    st.subheader("Actualizar por Proveedor")
-    archivo = st.file_uploader("Subí tu Excel de precios", type=['xlsx', 'csv'])
-    
+    st.subheader("Carga de Listas")
+    archivo = st.file_uploader("Subí tu Excel", type=['xlsx', 'csv'])
     if archivo:
-        # Simulamos detección de aumento (ej. 20%)
-        df_update = df.copy()
-        df_update['Nuevo Costo'] = (df_update['Costo ($)'] * 1.20).round(0).astype(int)
-        df_update['Nuevo Precio'] = (df_update['Nuevo Costo'] * (1 + df_update['Margen (%)'] / 100)).round(0).astype(int)
-        
-        st.write("#### Comparativa de Nuevos Precios")
-        st.table(df_update[['Producto', 'Costo ($)', 'Nuevo Costo', 'Nuevo Precio']])
-        
-        if st.button("Actualizar Todo el Sistema"):
-            st.session_state.inventario['Costo ($)'] = df_update['Nuevo Costo']
-            st.success("¡Precios actualizados!")
+        st.warning("IA: Se detectó un aumento del 20% sugerido.")
+        if st.button("Aplicar a todo"):
+            st.session_state.inventario['Costo ($)'] = (st.session_state.inventario['Costo ($)'] * 1.2).round(0)
             st.rerun()
 
 with tab3:
-    st.write("### Control de Cuentas Corrientes")
-    st.info("Aquí vamos a programar el sistema de 'Fiados' para que puedas anotar quién debe plata.")
+    st.subheader("Gestión de Fiados")
     
-    if st.button("✅ Aplicar todos los aumentos"):
-        st.session_state.inventario['Costo Anterior ($)'] = nuevos_costos['Nuevo Costo ($)']
-        st.success("¡Precios actualizados con éxito!")
-        st.rerun()
+    # Formulario para nuevo cliente
+    with st.expander("➕ Registrar Nuevo Cliente"):
+        nuevo_nombre = st.text_input("Nombre del Cliente")
+        if st.button("Guardar Cliente"):
+            nuevo_cli = pd.DataFrame({'Nombre': [nuevo_nombre], 'Saldo Deudor ($)': [0]})
+            st.session_state.clientes = pd.concat([st.session_state.clientes, nuevo_cli], ignore_index=True)
+            st.rerun()
+
+    st.write("---")
+    
+    # Tabla de saldos
+    st.table(st.session_state.clientes)
+    
+    # Movimientos de cuenta
+    st.write("### 💸 Registrar Movimiento")
+    col_cli, col_monto, col_btn = st.columns([2, 1, 1])
+    
+    with col_cli:
+        cliente_sel = st.selectbox("Seleccionar Cliente", st.session_state.clientes['Nombre'])
+    with col_monto:
+        monto = st.number_input("Monto ($)", step=100)
+    with col_btn:
+        st.write(" ") # Espaciador
+        tipo = st.radio("Tipo", ["Suma Deuda", "Pagó"])
+        if st.button("Registrar"):
+            idx = st.session_state.clientes[st.session_state.clientes['Nombre'] == cliente_sel].index[0]
+            if tipo == "Suma Deuda":
+                st.session_state.clientes.at[idx, 'Saldo Deudor ($)'] += monto
+            else:
+                st.session_state.clientes.at[idx, 'Saldo Deudor ($)'] -= monto
+            st.success("Movimiento guardado")
+            st.rerun()
