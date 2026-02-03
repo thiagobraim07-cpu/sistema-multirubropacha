@@ -80,7 +80,4 @@ if check_password():
     with tabs[2]:
         st.subheader("Fiados")
         # (Aquí va el código de clientes anterior...)
-        st.write("Gestión de deudas activa.")index[0]
-                mod = monto_c if tipo_m == "Sumar Deuda" else -monto_c
-                st.session_state.clientes.at[idx_c, 'Saldo Deudor ($)'] += mod
-                st.rerun()
+        st.write("Gestión de deudas activa.")
