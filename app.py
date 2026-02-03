@@ -1,137 +1,133 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import io
 
-# 1. Configuración de Estilo "White Neon"
+# 1. Estilo White Neon Profesional
 st.set_page_config(page_title="Pacha Pro AI", layout="wide")
 
 st.markdown("""
     <style>
     .stApp { background-color: #FFFFFF; color: #1E1E1E; }
-    [data-testid="stSidebar"] { background: #F8F9FA; border-right: 3px solid #00F2FF; }
-    div[data-testid="stMetric"] {
-        background-color: #FFFFFF;
-        border: 2px solid #FF00E5;
-        box-shadow: 0 0 10px #FF00E5;
+    /* Estilo del Asistente Superior */
+    .ai-container {
+        background: linear-gradient(90deg, #00F2FF, #FF00E5);
+        padding: 20px;
         border-radius: 15px;
+        margin-bottom: 25px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    div[data-testid="stMetric"] {
+        border: 2px solid #00F2FF;
+        border-radius: 15px;
+        padding: 10px;
     }
     .stButton>button {
-        background: linear-gradient(90deg, #00F2FF, #FF00E5);
-        color: white; border: none; border-radius: 20px; font-weight: bold;
+        border-radius: 10px;
+        font-weight: bold;
     }
-    .low-stock { color: #D32F2F; font-weight: bold; border: 1px solid #D32F2F; padding: 10px; border-radius: 5px; background-color: #FFEBEE; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Inicialización de Datos
-if 'inventario' not in st.session_state:
-    st.session_state.inventario = pd.DataFrame({
-        'Código': ['101', '102', '103'],
-        'Producto': ['Caramelos Arcor', 'Coca Cola', 'Alfajor'],
-        'Costo ($)': [10, 800, 500],
-        'Margen (%)': [100, 40, 50],
-        'Stock': [100, 15, 24]
+# 2. Inicialización de Datos (Base de datos centralizada)
+if 'inv' not in st.session_state:
+    st.session_state.inv = pd.DataFrame({
+        'Código': ['77901234', '77909876', '101'],
+        'Producto': ['Alfajor Arcor', 'Coca Cola 500ml', 'Caramelos'],
+        'Costo ($)': [500, 800, 10],
+        'Margen (%)': [50, 40, 100],
+        'Stock': [20, 15, 100]
     })
 
-if 'clientes' not in st.session_state:
-    st.session_state.clientes = pd.DataFrame({'Nombre': ['Consumidor Final', 'Juan Perez'], 'Saldo Deudor ($)': [0, 1500]})
+if 'cli' not in st.session_state:
+    st.session_state.cli = pd.DataFrame({'Nombre': ['Consumidor Final', 'Juan Perez'], 'Deuda ($)': [0, 1500]})
 
 if 'carrito' not in st.session_state:
     st.session_state.carrito = []
 
-if 'ventas_hoy' not in st.session_state:
-    st.session_state.ventas_hoy = 0
+if 'ventas_total' not in st.session_state:
+    st.session_state.ventas_total = 0
 
-# 3. Asistente Pacha IA (Accionable y Humano)
-with st.sidebar:
-    st.title("🤖 Asistente Pacha")
-    user_input = st.text_input("¿Qué orden tenés para mí?", placeholder="Ej: Vendí 2 cocas")
-    
-    if st.button("Ejecutar"):
-        query = user_input.lower()
-        inv = st.session_state.inventario
-        updated = False
-        
-        for i, row in inv.iterrows():
-            if row['Producto'].lower() in query:
-                nums = [int(s) for s in query.split() if s.isdigit()]
-                if nums:
-                    val = nums[0]
-                    # ACCIÓN: VENTA
-                    if "vend" in query or "salida" in query:
-                        if st.session_state.inventario.at[i, 'Stock'] >= val:
-                            st.session_state.inventario.at[i, 'Stock'] -= val
-                            p_venta = int(row['Costo ($)'] * (1 + row['Margen (%)'] / 100))
-                            st.session_state.ventas_hoy += (p_venta * val)
-                            st.success(f"¡Venta registrada! Desconté {val} de {row['Producto']}.")
-                            updated = True
-                    # ACCIÓN: ACTUALIZAR COSTO
-                    elif "costo" in query or "vale" in query:
-                        st.session_state.inventario.at[i, 'Costo ($)'] = val
-                        st.success(f"¡Entendido! El costo de {row['Producto']} ahora es ${val}.")
-                        updated = True
-        if updated: st.rerun()
+# --- 🤖 3. ASISTENTE IA SUPERIOR (Control Total) ---
+st.markdown('<div class="ai-container">', unsafe_allow_html=True)
+st.subheader("🤖 Asistente Pacha Pro")
+comando = st.text_input("¿Qué querés hacer? (Ej: 'Vender 2 cocas', 'Costo alfajor 600', 'Deuda Juan 2000')", placeholder="Escribí una orden...")
+st.markdown('</div>', unsafe_allow_html=True)
 
-# 4. Dashboard y Alertas
-st.title("Pacha Pro + AI Assistant")
-inv_disp = st.session_state.inventario.copy()
-inv_disp['Venta ($)'] = (inv_disp['Costo ($)'] * (1 + inv_disp['Margen (%)'] / 100)).round(0).astype(int)
+if comando:
+    cmd = comando.lower()
+    # Lógica de procesamiento de órdenes
+    for i, row in st.session_state.inv.iterrows():
+        if row['Producto'].lower() in cmd:
+            nums = [int(s) for s in cmd.split() if s.isdigit()]
+            if nums:
+                val = nums[0]
+                if "vend" in cmd:
+                    if st.session_state.inv.at[i, 'Stock'] >= val:
+                        st.session_state.inv.at[i, 'Stock'] -= val
+                        precio = int(row['Costo ($)'] * (1 + row['Margen (%)'] / 100))
+                        st.session_state.ventas_total += (precio * val)
+                        st.success(f"✅ Venta procesada: {val}x {row['Producto']}")
+                    else: st.error("Stock insuficiente")
+                elif "costo" in cmd or "vale" in cmd:
+                    st.session_state.inv.at[i, 'Costo ($)'] = val
+                    st.success(f"✅ Nuevo costo para {row['Producto']}: ${val}")
+                elif "stock" in cmd or "tengo" in cmd:
+                    st.session_state.inv.at[i, 'Stock'] = val
+                    st.success(f"✅ Stock de {row['Producto']} actualizado a {val}")
+    st.divider()
 
+# 4. Dashboard de Métricas
 c1, c2, c3 = st.columns(3)
-c1.metric("📦 Productos", len(inv_disp))
-c2.metric("💰 Ventas Hoy", f"$ {st.session_state.ventas_hoy:,.0f}")
-c3.metric("🤝 Deudas", f"$ {st.session_state.clientes['Saldo Deudor ($)'].sum():,.0f}")
+c1.metric("💰 Ventas Hoy", f"$ {st.session_state.ventas_total:,.0f}")
+c2.metric("📦 Productos", len(st.session_state.inv))
+c3.metric("🤝 Deuda Clientes", f"$ {st.session_state.cli['Deuda ($)'].sum():,.0f}")
 
-tabs = st.tabs(["🛒 CAJA", "📋 INVENTARIO", "👤 CLIENTES", "📥 CARGAS"])
+st.divider()
 
-# --- PESTAÑA 1: CAJA ---
-with tabs[0]:
+# 5. Módulos del Sistema
+tabs = st.tabs(["🛒 CAJA RÁPIDA", "📋 INVENTARIO", "👥 CLIENTES", "📥 CARGA MASIVA"])
+
+with tabs[0]: # CAJA
     col_a, col_b = st.columns(2)
     with col_a:
-        st.subheader("Selección")
-        barcode = st.text_input("Escaneá o buscá producto", key="scanner")
-        if barcode:
-            match = inv_disp[inv_display['Código'] == barcode] if barcode.isdigit() else inv_disp[inv_disp['Producto'].str.contains(barcode, case=False)]
-            if not match.empty:
-                item = match.iloc[0]
-                if st.button(f"Agregar {item['Producto']} - ${item['Venta ($)']}️"):
-                    st.session_state.carrito.append({'Prod': item['Producto'], 'Cant': 1, 'Sub': item['Venta ($)']})
-                    st.rerun()
+        st.subheader("Selección de Productos")
+        prod = st.selectbox("Producto", st.session_state.inv['Producto'])
+        cant = st.number_input("Cantidad", min_value=1, value=1)
+        if st.button("➕ Agregar al Carrito"):
+            match = st.session_state.inv[st.session_state.inv['Producto'] == prod].iloc[0]
+            precio_v = int(match['Costo ($)'] * (1 + match['Margen (%)'] / 100))
+            st.session_state.carrito.append({'Prod': prod, 'Cant': cant, 'Sub': precio_v * cant})
     with col_b:
-        st.subheader("Carrito")
+        st.subheader("Ticket")
         if st.session_state.carrito:
-            df_c = pd.DataFrame(st.session_state.carrito)
-            st.table(df_c)
+            st.table(pd.DataFrame(st.session_state.carrito))
             if st.button("Finalizar Venta"):
                 for it in st.session_state.carrito:
-                    idx = inv[inv['Producto'] == it['Prod']].index[0]
-                    st.session_state.inventario.at[idx, 'Stock'] -= it['Cant']
-                    st.session_state.ventas_hoy += it['Sub']
+                    idx = st.session_state.inv[st.session_state.inv['Producto'] == it['Prod']].index[0]
+                    st.session_state.inv.at[idx, 'Stock'] -= it['Cant']
+                    st.session_state.ventas_total += it['Sub']
                 st.session_state.carrito = []
-                st.success("¡Cobrado!")
                 st.rerun()
 
-# --- PESTAÑA 2: INVENTARIO ---
-with tabs[1]:
+with tabs[1]: # INVENTARIO
     st.subheader("Control de Stock")
-    st.dataframe(inv_disp, use_container_width=True)
-    bajos = inv_disp[inv_disp['Stock'] < 5]
-    if not bajos.empty:
-        st.error(f"⚠️ Reponer: {', '.join(bajos['Producto'].tolist())}")
+    df_inv = st.session_state.inv.copy()
+    df_inv['Venta ($)'] = (df_inv['Costo ($)'] * (1 + df_inv['Margen (%)'] / 100)).round(0)
+    st.dataframe(df_inv, use_container_width=True)
 
-# --- PESTAÑA 3: CLIENTES ---
-with tabs[2]:
-    st.subheader("Cuentas Corrientes")
-    st.dataframe(st.session_state.clientes, use_container_width=True)
-
-# --- PESTAÑA 4: CARGAS (MULTIFORMATO) ---
-with tabs[3]:
-    st.subheader("Importar Lista de Proveedores")
-    file = st.file_uploader("Subí tu Excel (.xlsx) o CSV (.csv)", type=['xlsx', 'csv'])
-    if file:
-        st.info("Archivo detectado. La IA procesará los cambios de precio.")
-        if st.button("Procesar y Actualizar Inventario"):
-            st.session_state.inventario['Costo ($)'] = (st.session_state.inventario['Costo ($)'] * 1.10).round(0)
-            st.success("Inventario actualizado.")
+with tabs[2]: # CLIENTES
+    st.subheader("Cuentas de Fiados")
+    st.dataframe(st.session_state.cli, use_container_width=True)
+    with st.expander("Modificar Deuda"):
+        c_sel = st.selectbox("Elegir Cliente", st.session_state.cli['Nombre'])
+        monto = st.number_input("Monto ($)", min_value=0)
+        if st.button("Registrar Movimiento"):
+            idx_c = st.session_state.cli[st.session_state.cli['Nombre'] == c_sel].index[0]
+            st.session_state.cli.at[idx_c, 'Deuda ($)'] += monto # Podés cambiar a resta si paga
             st.rerun()
+
+with tabs[3]: # CARGA MASIVA
+    st.subheader("Importar desde Excel/CSV")
+    file = st.file_uploader("Subí tu lista de precios", type=['xlsx', 'csv'])
+    if file:
+        st.info("La IA está lista para procesar los datos.")
