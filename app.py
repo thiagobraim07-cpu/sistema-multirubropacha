@@ -2,81 +2,101 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-st.set_page_config(page_title="Pacha Pro - AI Edition", layout="wide")
+# 1. Configuración de Estilo "White Neon"
+st.set_page_config(page_title="Pacha Pro AI", layout="wide")
 
-# 1. Seguridad (Contraseña: pacha2026)
-def check_password():
-    if "password_correct" not in st.session_state:
-        st.title("🔐 Acceso Pacha Pro")
-        pwd = st.text_input("Contraseña", type="password")
-        if st.button("Entrar"):
-            if pwd == "pacha2026":
-                st.session_state["password_correct"] = True
-                st.rerun()
-            else:
-                st.error("Contraseña incorrecta")
-        return False
-    return True
-
-if check_password():
-    # 2. Base de Datos
-    if 'inventario' not in st.session_state:
-        st.session_state.inventario = pd.DataFrame({
-            'Código': ['101', '102'],
-            'Producto': ['Caramelos', 'Gaseosa'],
-            'Costo ($)': [10, 800],
-            'Margen (%)': [100, 40],
-            'Stock': [100, 15]
-        })
-
-    # 3. Interfaz
-    st.title("🏪 Pacha Pro + AI Assistant")
+st.markdown("""
+    <style>
+    /* Fondo Blanco y Texto Oscuro */
+    .stApp { background-color: #FFFFFF; color: #1E1E1E; }
     
-    # --- 🤖 NUEVO: ASISTENTE DE IA (ACCIONABLE) ---
-    with st.sidebar:
-        st.header("🤖 Asistente Pacha IA")
-        st.write("Pedime cambios en lenguaje natural.")
-        query = st.text_input("Ej: 'Costo del caramelo a 20'", key="ai_query")
+    /* Barra Lateral con Degradado Neón */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #FFFFFF 0%, #F0F2F6 100%);
+        border-right: 3px solid #00F2FF;
+    }
+    
+    /* Tarjetas y Contenedores con Glow Neón */
+    div[data-testid="stMetric"] {
+        background-color: #FFFFFF;
+        border: 2px solid #FF00E5;
+        box-shadow: 0 0 10px #FF00E5;
+        border-radius: 15px;
+    }
+    
+    /* Botones Neón */
+    .stButton>button {
+        background: linear-gradient(90deg, #00F2FF, #FF00E5);
+        color: white;
+        border: none;
+        border-radius: 20px;
+        font-weight: bold;
+        box-shadow: 0 0 15px rgba(255, 0, 229, 0.4);
+    }
+    
+    /* Pestañas (Tabs) */
+    button[data-baseweb="tab"] { color: #1E1E1E; }
+    button[aria-selected="true"] { color: #FF00E5 !important; border-bottom-color: #FF00E5 !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# 2. Base de Datos
+if 'inventario' not in st.session_state:
+    st.session_state.inventario = pd.DataFrame({
+        'Código': ['101', '102'],
+        'Producto': ['Caramelos Arcor', 'Coca Cola'],
+        'Costo ($)': [10, 800],
+        'Margen (%)': [100, 40],
+        'Stock': [100, 15]
+    })
+
+# 3. Asistente Pacha IA (Mejorado para ser más humano)
+with st.sidebar:
+    st.title("🤖 Asistente Pacha")
+    user_input = st.text_input("¿En qué te ayudo hoy?", placeholder="Ej: Cambiá el costo de la coca a 900")
+    
+    if st.button("Enviar"):
+        query = user_input.lower()
+        inv = st.session_state.inventario
+        updated = False
         
-        if st.button("Ejecutar Orden"):
-            query = query.lower()
-            inv = st.session_state.inventario
-            success_action = False
-            
-            # Lógica de detección de órdenes (Simulación de IA procesadora)
-            for i, row in inv.iterrows():
-                prod_name = row['Producto'].lower()
-                if prod_name in query:
-                    # Detectar si quiere cambiar COSTO
-                    if "costo" in query or "vale" in query:
-                        new_val = [int(s) for s in query.split() if s.isdigit()][0]
-                        st.session_state.inventario.at[i, 'Costo ($)'] = new_val
-                        st.success(f"✅ Costo de {row['Producto']} actualizado a ${new_val}")
-                        success_action = True
-                    # Detectar si quiere cambiar STOCK
-                    elif "stock" in query or "cantidad" in query:
-                        new_val = [int(s) for s in query.split() if s.isdigit()][0]
-                        st.session_state.inventario.at[i, 'Stock'] = new_val
-                        st.success(f"✅ Stock de {row['Producto']} actualizado a {new_val}")
-                        success_action = True
-            
-            if success_action:
-                st.rerun()
-            else:
-                st.error("No entendí la orden. Intentá: '[Producto] [campo] [valor]'")
+        # Lógica de acción natural
+        for i, row in inv.iterrows():
+            if row['Producto'].lower() in query:
+                # Extraer el número de la frase
+                nums = [int(s) for s in query.split() if s.isdigit()]
+                if nums:
+                    val = nums[0]
+                    if "costo" in query or "precio" in query or "vale" in query:
+                        st.session_state.inventario.at[i, 'Costo ($)'] = val
+                        st.success(f"¡Entendido! Ya actualicé el costo de {row['Producto']} a ${val}. ¿Algo más?")
+                        updated = True
+                    elif "stock" in query or "cantidad" in query or "tengo" in query:
+                        st.session_state.inventario.at[i, 'Stock'] = val
+                        st.success(f"¡Listo! Ahora figuran {val} unidades de {row['Producto']} en el sistema.")
+                        updated = True
+        
+        if not updated:
+            st.info("Hola! Soy tu asistente. Decime qué producto querés modificar y el nuevo valor (ej: 'Stock de alfajor a 50').")
+        else:
+            st.balloons()
+            st.rerun()
 
-    # 4. Pestañas de siempre
-    tabs = st.tabs(["🛒 VENTAS", "📋 INVENTARIO", "👤 CLIENTES"])
+# 4. Interfaz Principal
+st.title("Pacha Pro + AI Assistant")
+inv_disp = st.session_state.inventario.copy()
+inv_disp['Venta ($)'] = (inv_disp['Costo ($)'] * (1 + inv_disp['Margen (%)'] / 100)).round(0).astype(int)
 
-    with tabs[0]:
-        st.subheader("Caja Rápida")
-        # (Aquí va el código de ventas anterior...)
-        st.info("Escanear producto para vender.")
+c1, c2, c3 = st.columns(3)
+c1.metric("📦 Productos", len(inv_disp))
+c2.metric("💰 Valor Inventario", f"$ {(inv_disp['Costo ($)'] * inv_disp['Stock']).sum():,.0f}")
+c3.metric("📈 Margen Promedio", f"{int(inv_disp['Margen (%)'].mean())}%")
 
-    with tabs[1]:
-        st.subheader("Control de Stock")
-        st.dataframe(st.session_state.inventario, use_container_width=True)
+tabs = st.tabs(["🛒 VENTAS", "📋 INVENTARIO", "👤 CLIENTES"])
 
+with tabs[1]:
+    st.subheader("Control de Stock")
+    st.dataframe(inv_disp, use_container_width=True)
     with tabs[2]:
         st.subheader("Fiados")
         # (Aquí va el código de clientes anterior...)
